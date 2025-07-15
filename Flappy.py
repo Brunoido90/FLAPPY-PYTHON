@@ -6,10 +6,14 @@
 import pygame
 import random
 import sys
-import math # Import the math module
+import math
+import requests # Importiere das requests Modul
+import os       # Importiere das os Modul für Dateipfade
 
 # Initialisierung
 pygame.init()
+pygame.mixer.init() # Initialisiere den Pygame Mixer
+
 screen = pygame.display.set_mode((400, 600))
 pygame.display.set_caption("Flappy Bird")
 clock = pygame.time.Clock()
@@ -21,7 +25,7 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BIRD_YELLOW = (255, 204, 0)
 BIRD_RED = (255, 77, 0)
-RED = (255, 0, 0) # Define the RED color
+RED = (255, 0, 0)
 
 # Original Flappy Bird Parameter
 BIRD_WIDTH = 34
@@ -32,6 +36,72 @@ PIPE_WIDTH = 52
 PIPE_GAP = 120
 PIPE_SPEED = 2.5
 GROUND_HEIGHT = 500
+
+# --- URLs für Sounddateien (DIESE SIND PLATZHALTER! BITTE ERSETZEN SIE DIESE!) ---
+# Sie müssen hier direkte Download-Links zu WAV-Dateien finden, z.B. von Freesound.org
+# Beispiel: SOUND_URLS = {"flap": "https://freesound.org/data/previews/274/274093_4981146-lq.wav", ...}
+SOUND_URLS = {
+    "flap": "https://www.101soundboards.com/sounds/13789-flap",
+    "hit": "https://www.101soundboards.com/sounds/13786-flappy-bird-hit-sound",
+    "point": "https://www.101soundboards.com/sounds/13787-point",
+    "music": "https://www.101soundboards.com/sounds/31661337-super-mario-bros-nes-music-overworld-theme"
+}
+
+# --- Funktion zum Herunterladen von Dateien ---
+def download_file(url, filename):
+    if not url or url.startswith("https://www.example.com/"): # Überspringe Platzhalter-URLs
+        print(f"Skipping download for placeholder URL: {url}")
+        return False
+    if os.path.exists(filename):
+        print(f"Datei '{filename}' existiert bereits. Überspringe Download.")
+        return True
+    try:
+        print(f"Lade '{filename}' von {url} herunter...")
+        response = requests.get(url, stream=True, timeout=10) # Timeout hinzugefügt
+        response.raise_for_status() # Löst einen HTTPError für schlechte Antworten (4xx oder 5xx) aus
+        with open(filename, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print(f"Download von '{filename}' abgeschlossen.")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Fehler beim Herunterladen von {url} zu {filename}: {e}")
+        return False
+
+# --- Soundeffekte laden (Versuche, sie herunterzuladen und dann zu laden) ---
+flap_sound = None
+hit_sound = None
+point_sound = None
+background_music_file_path = None # Variable für den Pfad der Musikdatei
+
+# Versuche, die Sounds herunterzuladen und zu laden
+if download_file(SOUND_URLS["flap"], "wing.wav"):
+    try:
+        flap_sound = pygame.mixer.Sound("wing.wav")
+    except pygame.error as e:
+        print(f"Fehler beim Laden von wing.wav: {e}")
+
+if download_file(SOUND_URLS["hit"], "hit.wav"):
+    try:
+        hit_sound = pygame.mixer.Sound("hit.wav")
+    except pygame.error as e:
+        print(f"Fehler beim Laden von hit.wav: {e}")
+
+if download_file(SOUND_URLS["point"], "point.wav"):
+    try:
+        point_sound = pygame.mixer.Sound("point.wav")
+    except pygame.error as e:
+        print(f"Fehler beim Laden von point.wav: {e}")
+
+if download_file(SOUND_URLS["music"], "background_music.wav"):
+    background_music_file_path = "background_music.wav"
+    try:
+        pygame.mixer.music.load(background_music_file_path)
+        pygame.mixer.music.set_volume(0.5)
+    except pygame.error as e:
+        print(f"Fehler beim Laden der Hintergrundmusik: {e}")
+        background_music_file_path = None
+
 
 # Vogel-Design (Pixelgenau)
 def draw_bird(x, y):
@@ -58,10 +128,11 @@ bird_y = 300
 bird_speed = 0
 pipes = []
 score = 0
-high_score = 0 # high_score is defined but not used to keep track of the highest score.
+high_score = 0
 game_active = False
 font = pygame.font.SysFont('Arial', 50, bold=True)
 passed_pipes = set()
+background_music_playing = False # Flag, um den Zustand der Musik zu verfolgen
 
 def create_pipe():
     gap_y = random.randint(200, 400)
@@ -77,7 +148,7 @@ while True:
             pygame.quit()
             sys.exit()
             
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE: # Changed to KEYDOWN for single press
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
             if not game_active:
                 # Neustart
                 game_active = True
@@ -86,9 +157,23 @@ while True:
                 pipes = []
                 score = 0
                 passed_pipes = set()
+                if pygame.mixer.music.get_busy():
+                    pygame.mixer.music.stop()
+                background_music_playing = False # Reset the flag
+                
             else:
                 # Sprung
                 bird_speed = FLAP_STRENGTH
+                if flap_sound:
+                    flap_sound.play()
+
+    # Spiele Hintergrundmusik, wenn das Spiel aktiv ist und die Musik noch nicht läuft
+    if game_active and not background_music_playing and background_music_file_path:
+        pygame.mixer.music.play(-1) # -1 bedeutet, dass die Musik in einer Schleife gespielt wird
+        background_music_playing = True
+    elif not game_active and background_music_playing: # Stoppe die Musik, wenn das Spiel nicht aktiv ist
+        pygame.mixer.music.stop()
+        background_music_playing = False
 
     # Spiel-Logik
     if game_active:
@@ -97,17 +182,13 @@ while True:
         bird_y += bird_speed
 
         # Rohr-Generierung
-        # Ensures that a new pipe pair is added only when the last pipe's x position is sufficiently far to the left.
-        # This creates a continuous stream of pipes.
-        if len(pipes) == 0 or pipes[-1][0].x < 250: # Check the x position of the first rectangle in the last pipe pair
+        if len(pipes) == 0 or pipes[-1][0].x < 250:
             pipes.append(create_pipe())
 
         # Rohr-Bewegung
-        # Iterates through a copy of the pipes list to avoid issues when removing elements during iteration.
         for pipe_pair in pipes[:]:
             for pipe in pipe_pair:
                 pipe.x -= PIPE_SPEED
-            # Remove pipe pair if it's completely off-screen
             if pipe_pair[0].right < 0:
                 pipes.remove(pipe_pair)
 
@@ -117,26 +198,26 @@ while True:
             for pipe in pipe_pair:
                 if bird_rect.colliderect(pipe):
                     game_active = False
-                    # Update high score if current score is greater
+                    if hit_sound:
+                        hit_sound.play()
                     if score > high_score:
                         high_score = score
         
         # Boden-Kollision
-        if bird_y > GROUND_HEIGHT - BIRD_HEIGHT or bird_y < 0: # Also added collision with the top of the screen
+        if bird_y > GROUND_HEIGHT - BIRD_HEIGHT or bird_y < 0:
             game_active = False
-            # Update high score if current score is greater
+            if hit_sound:
+                hit_sound.play()
             if score > high_score:
                 high_score = score
 
         # Punktezählung
-        # Iterates through the pipe pairs to check if the bird has passed them.
         for pipe_pair in pipes:
-            # Check only the upper pipe for scoring to avoid double counting for each pipe in a pair.
-            # Ensures the pipe hasn't been passed before and is to the left of the bird.
             if pipe_pair[0].right < bird_x and id(pipe_pair) not in passed_pipes:
                 score += 1
                 passed_pipes.add(id(pipe_pair))
-
+                if point_sound:
+                    point_sound.play()
 
     # Zeichnen
     screen.fill(SKY_BLUE)
@@ -156,27 +237,30 @@ while True:
     
     # Punktestand
     score_text = font.render(str(score), True, WHITE)
-    screen.blit(score_text, (200 - score_text.get_width()//2, 100))
+    screen.blit(score_text, (screen.get_width() // 2 - score_text.get_width() // 2, 100))
     
-    # Start/Game Over menü
+    # Start/Game Over Menü
     if not game_active:
+        if score > high_score:
+            high_score = score
+
         if score > 0: # Display "Game Over" and restart if a game was played
             game_over_text = font.render("Game Over", True, RED)
             score_display_text = font.render(f"Score: {score}", True, WHITE)
             high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
             restart_text = font.render("Press SPACE to restart", True, WHITE)
 
-            screen.blit(game_over_text, (200 - game_over_text.get_width()//2, 150))
-            screen.blit(score_display_text, (200 - score_display_text.get_width()//2, 220))
-            screen.blit(high_score_text, (200 - high_score_text.get_width()//2, 280))
-            screen.blit(restart_text, (200 - restart_text.get_width()//2, 350))
+            screen.blit(game_over_text, (screen.get_width() // 2 - game_over_text.get_width() // 2, 150))
+            screen.blit(score_display_text, (screen.get_width() // 2 - score_display_text.get_width() // 2, 220))
+            screen.blit(high_score_text, (screen.get_width() // 2 - high_score_text.get_width() // 2, 280))
+            screen.blit(restart_text, (screen.get_width() // 2 - restart_text.get_width() // 2, 350))
         else: # Display "Press SPACE to start" at the very beginning
             start_text = font.render("Press SPACE to start", True, WHITE)
-            screen.blit(start_text, (200 - start_text.get_width()//2, 280))
-            # Display high score on initial start screen
             high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
-            screen.blit(high_score_text, (200 - high_score_text.get_width()//2, 340))
-            draw_bird(bird_x, bird_y) # Show bird on start screen
-
+            
+            screen.blit(start_text, (screen.get_width() // 2 - start_text.get_width() // 2, 280))
+            screen.blit(high_score_text, (screen.get_width() // 2 - high_score_text.get_width() // 2, 340))
+            draw_bird(bird_x, bird_y)
+            
     pygame.display.update()
     clock.tick(60)
