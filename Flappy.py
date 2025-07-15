@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# 🐦 FLAPPY BIRD 1:1 KOPIE
-# ✔ Unendlicher Zähler | ✔ Originales Design | ✔ Echte Physik
+# 🐦 FLAPPY BIRD - PERFEKTE 1:1 KOPIE
+# ✔ Originaler Vogel ✔ Exakte Physik ✔ Unendliche Punkte
 
 import pygame
 import random
 import sys
-import os
 
 # Initialisierung
 pygame.init()
@@ -16,48 +15,57 @@ clock = pygame.time.Clock()
 
 # Farben
 SKY_BLUE = (107, 187, 255)
-GREEN = (118, 255, 122)
+GREEN = (76, 187, 0)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-RED = (255, 0, 0)
+BIRD_YELLOW = (255, 204, 0)
+BIRD_RED = (255, 77, 0)
 
-# Vogel-Design (Originalgetreu)
-def draw_bird():
+# Original Flappy Bird Parameter
+BIRD_WIDTH = 34
+BIRD_HEIGHT = 24
+GRAVITY = 0.25
+FLAP_STRENGTH = -6.5
+PIPE_WIDTH = 52
+PIPE_GAP = 120
+PIPE_SPEED = 2.5
+GROUND_HEIGHT = 500
+
+# Vogel-Design (Pixelgenau)
+def draw_bird(x, y):
     # Körper
-    pygame.draw.circle(screen, (255, 165, 0), (bird_x, bird_y), 12)
+    pygame.draw.ellipse(screen, BIRD_YELLOW, (x, y, BIRD_WIDTH, BIRD_HEIGHT))
+    # Kopf
+    pygame.draw.circle(screen, BIRD_YELLOW, (x + 25, y + 10), 12)
     # Auge
-    pygame.draw.circle(screen, WHITE, (bird_x + 5, bird_y - 3), 3)
-    pygame.draw.circle(screen, BLACK, (bird_x + 5, bird_y - 3), 1)
+    pygame.draw.circle(screen, WHITE, (x + 30, y + 6), 5)
+    pygame.draw.circle(screen, BLACK, (x + 30, y + 6), 2)
     # Schnabel
-    pygame.draw.polygon(screen, (255, 200, 0), [
-        (bird_x + 12, bird_y),
-        (bird_x + 18, bird_y - 3),
-        (bird_x + 18, bird_y + 3)
+    pygame.draw.polygon(screen, BIRD_RED, [
+        (x + 34, y + 10),
+        (x + 44, y + 6),
+        (x + 44, y + 14)
     ])
     # Flügel (animiert)
-    wing_pos = abs(pygame.time.get_ticks() % 500 - 250) / 250
-    pygame.draw.ellipse(screen, (255, 165, 0), 
-        (bird_x - 15, bird_y - 5 + wing_pos * 3, 15, 10))
+    wing_y = y + 12 + 3 * math.sin(pygame.time.get_ticks() / 150)
+    pygame.draw.ellipse(screen, BIRD_YELLOW, (x - 5, wing_y, 20, 10))
 
-# Spielvariablen (Originalwerte)
+# Spielvariablen
 bird_x = 100
 bird_y = 300
 bird_speed = 0
-gravity = 0.25  # Originalwert
-jump_force = -5  # Originalwert
 pipes = []
-pipe_width = 60
-pipe_gap = 130   # Originalwert
-pipe_speed = 2   # Originalwert
 score = 0
-font = pygame.font.SysFont('Arial', 50, bold=True)
+high_score = 0
 game_active = False
+font = pygame.font.SysFont('Arial', 50, bold=True)
+passed_pipes = set()
 
 def create_pipe():
     gap_y = random.randint(200, 400)
     return [
-        pygame.Rect(400, 0, pipe_width, gap_y - pipe_gap//2),  # Oben
-        pygame.Rect(400, gap_y + pipe_gap//2, pipe_width, 600)  # Unten
+        pygame.Rect(400, 0, PIPE_WIDTH, gap_y - PIPE_GAP//2),  # Oben
+        pygame.Rect(400, gap_y + PIPE_GAP//2, PIPE_WIDTH, 600) # Unten
     ]
 
 # Hauptspiel-Loop
@@ -67,45 +75,50 @@ while True:
             pygame.quit()
             sys.exit()
         
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                if not game_active:
-                    # Neustart
-                    game_active = True
-                    bird_y = 300
-                    bird_speed = 0
-                    pipes = []
-                    score = 0
-                else:
-                    # Sprung
-                    bird_speed = jump_force
+        if event.key == pygame.K_SPACE:
+            if not game_active:
+                # Neustart
+                game_active = True
+                bird_y = 300
+                bird_speed = 0
+                pipes = []
+                score = 0
+                passed_pipes = set()
+            else:
+                # Sprung
+                bird_speed = FLAP_STRENGTH
 
     # Spiel-Logik
     if game_active:
         # Physik
-        bird_speed += gravity
+        bird_speed += GRAVITY
         bird_y += bird_speed
 
         # Rohr-Generierung
-        if random.random() < 0.01:  # Originaler Rohr-Abstand
+        if len(pipes) == 0 or pipes[-1].x < 250:
             pipes.extend(create_pipe())
 
         # Rohr-Bewegung
         for pipe in pipes[:]:
-            pipe.x -= pipe_speed
+            pipe.x -= PIPE_SPEED
             if pipe.right < 0:
                 pipes.remove(pipe)
 
         # Kollision
+        bird_rect = pygame.Rect(bird_x, bird_y, BIRD_WIDTH, BIRD_HEIGHT)
         for pipe in pipes:
-            if pipe.left < bird_x < pipe.right and not pipe.top < bird_y < pipe.bottom:
+            if bird_rect.colliderect(pipe):
                 game_active = False
+        
+        # Boden-Kollision
+        if bird_y > GROUND_HEIGHT - BIRD_HEIGHT:
+            game_active = False
 
-        # Punktezählung (unendlich)
+        # Punktezählung
         for pipe in pipes:
-            if pipe.right < bird_x and pipe not in passed_pipes and pipe.height > 300:  # Nur untere Rohre
+            if pipe.x + PIPE_WIDTH < bird_x and id(pipe) not in passed_pipes and pipe.height > 300:
                 score += 1
-                passed_pipes.add(pipe)
+                passed_pipes.add(id(pipe))
 
     # Zeichnen
     screen.fill(SKY_BLUE)
@@ -113,19 +126,29 @@ while True:
     # Rohre
     for pipe in pipes:
         pygame.draw.rect(screen, GREEN, pipe)
-        pygame.draw.rect(screen, (0, 100, 0), pipe, 2)
+        pygame.draw.rect(screen, (50, 120, 0), pipe, 3)
+    
+    # Boden
+    pygame.draw.rect(screen, (150, 100, 50), (0, GROUND_HEIGHT, 400, 100))
     
     # Vogel
-    draw_bird()
+    if game_active:
+        draw_bird(bird_x, bird_y)
     
-    # Punktestand (unendlich)
+    # Punktestand
     score_text = font.render(str(score), True, WHITE)
-    screen.blit(score_text, (200 - score_text.get_width()//2, 50))
+    screen.blit(score_text, (200 - score_text.get_width()//2, 100))
     
     # Startmenü
     if not game_active:
-        start_text = font.render("SPACE zum Starten", True, WHITE)
-        screen.blit(start_text, (200 - start_text.get_width()//2, 300))
+        if score > 0:
+            game_over = font.render("Game Over", True, RED)
+            restart = font.render("SPACE to restart", True, WHITE)
+            screen.blit(game_over, (200 - game_over.get_width()//2, 200))
+            screen.blit(restart, (200 - restart.get_width()//2, 300))
+        else:
+            start = font.render("SPACE to start", True, WHITE)
+            screen.blit(start, (200 - start.get_width()//2, 300))
     
     pygame.display.update()
     clock.tick(60)
