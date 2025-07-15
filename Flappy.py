@@ -6,6 +6,7 @@
 import pygame
 import random
 import sys
+import math # Import the math module
 
 # Initialisierung
 pygame.init()
@@ -20,6 +21,7 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BIRD_YELLOW = (255, 204, 0)
 BIRD_RED = (255, 77, 0)
+RED = (255, 0, 0) # Define the RED color
 
 # Original Flappy Bird Parameter
 BIRD_WIDTH = 34
@@ -56,7 +58,7 @@ bird_y = 300
 bird_speed = 0
 pipes = []
 score = 0
-high_score = 0
+high_score = 0 # high_score is defined but not used to keep track of the highest score.
 game_active = False
 font = pygame.font.SysFont('Arial', 50, bold=True)
 passed_pipes = set()
@@ -74,8 +76,8 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-        
-        if event.key == pygame.K_SPACE:
+            
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE: # Changed to KEYDOWN for single press
             if not game_active:
                 # Neustart
                 game_active = True
@@ -95,38 +97,55 @@ while True:
         bird_y += bird_speed
 
         # Rohr-Generierung
-        if len(pipes) == 0 or pipes[-1].x < 250:
-            pipes.extend(create_pipe())
+        # Ensures that a new pipe pair is added only when the last pipe's x position is sufficiently far to the left.
+        # This creates a continuous stream of pipes.
+        if len(pipes) == 0 or pipes[-1][0].x < 250: # Check the x position of the first rectangle in the last pipe pair
+            pipes.append(create_pipe())
 
         # Rohr-Bewegung
-        for pipe in pipes[:]:
-            pipe.x -= PIPE_SPEED
-            if pipe.right < 0:
-                pipes.remove(pipe)
+        # Iterates through a copy of the pipes list to avoid issues when removing elements during iteration.
+        for pipe_pair in pipes[:]:
+            for pipe in pipe_pair:
+                pipe.x -= PIPE_SPEED
+            # Remove pipe pair if it's completely off-screen
+            if pipe_pair[0].right < 0:
+                pipes.remove(pipe_pair)
 
         # Kollision
         bird_rect = pygame.Rect(bird_x, bird_y, BIRD_WIDTH, BIRD_HEIGHT)
-        for pipe in pipes:
-            if bird_rect.colliderect(pipe):
-                game_active = False
+        for pipe_pair in pipes:
+            for pipe in pipe_pair:
+                if bird_rect.colliderect(pipe):
+                    game_active = False
+                    # Update high score if current score is greater
+                    if score > high_score:
+                        high_score = score
         
         # Boden-Kollision
-        if bird_y > GROUND_HEIGHT - BIRD_HEIGHT:
+        if bird_y > GROUND_HEIGHT - BIRD_HEIGHT or bird_y < 0: # Also added collision with the top of the screen
             game_active = False
+            # Update high score if current score is greater
+            if score > high_score:
+                high_score = score
 
         # Punktezählung
-        for pipe in pipes:
-            if pipe.x + PIPE_WIDTH < bird_x and id(pipe) not in passed_pipes and pipe.height > 300:
+        # Iterates through the pipe pairs to check if the bird has passed them.
+        for pipe_pair in pipes:
+            # Check only the upper pipe for scoring to avoid double counting for each pipe in a pair.
+            # Ensures the pipe hasn't been passed before and is to the left of the bird.
+            if pipe_pair[0].right < bird_x and id(pipe_pair) not in passed_pipes:
                 score += 1
-                passed_pipes.add(id(pipe))
+                passed_pipes.add(id(pipe_pair))
+
 
     # Zeichnen
     screen.fill(SKY_BLUE)
     
     # Rohre
-    for pipe in pipes:
-        pygame.draw.rect(screen, GREEN, pipe)
-        pygame.draw.rect(screen, (50, 120, 0), pipe, 3)
+    for pipe_pair in pipes:
+        for pipe in pipe_pair:
+            pygame.draw.rect(screen, GREEN, pipe)
+            pygame.draw.rect(screen, (50, 120, 0), pipe, 3)
     
     # Boden
     pygame.draw.rect(screen, (150, 100, 50), (0, GROUND_HEIGHT, 400, 100))
@@ -139,16 +158,25 @@ while True:
     score_text = font.render(str(score), True, WHITE)
     screen.blit(score_text, (200 - score_text.get_width()//2, 100))
     
-    # Startmenü
+    # Start/Game Over menü
     if not game_active:
-        if score > 0:
-            game_over = font.render("Game Over", True, RED)
-            restart = font.render("SPACE to restart", True, WHITE)
-            screen.blit(game_over, (200 - game_over.get_width()//2, 200))
-            screen.blit(restart, (200 - restart.get_width()//2, 300))
-        else:
-            start = font.render("SPACE to start", True, WHITE)
-            screen.blit(start, (200 - start.get_width()//2, 300))
-    
+        if score > 0: # Display "Game Over" and restart if a game was played
+            game_over_text = font.render("Game Over", True, RED)
+            score_display_text = font.render(f"Score: {score}", True, WHITE)
+            high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
+            restart_text = font.render("Press SPACE to restart", True, WHITE)
+
+            screen.blit(game_over_text, (200 - game_over_text.get_width()//2, 150))
+            screen.blit(score_display_text, (200 - score_display_text.get_width()//2, 220))
+            screen.blit(high_score_text, (200 - high_score_text.get_width()//2, 280))
+            screen.blit(restart_text, (200 - restart_text.get_width()//2, 350))
+        else: # Display "Press SPACE to start" at the very beginning
+            start_text = font.render("Press SPACE to start", True, WHITE)
+            screen.blit(start_text, (200 - start_text.get_width()//2, 280))
+            # Display high score on initial start screen
+            high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
+            screen.blit(high_score_text, (200 - high_score_text.get_width()//2, 340))
+            draw_bird(bird_x, bird_y) # Show bird on start screen
+
     pygame.display.update()
     clock.tick(60)
