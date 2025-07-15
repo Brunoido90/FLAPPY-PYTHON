@@ -37,14 +37,14 @@ PIPE_GAP = 120
 PIPE_SPEED = 2.5
 GROUND_HEIGHT = 500
 
-# --- URLs für Sounddateien ---
-# Diese Links verweisen auf direkt herunterladbare .wav-Dateien von kostenlosen Sound-Ressourcen.
-# Stellen Sie sicher, dass Ihr System diese herunterladen und abspielen kann.
+# --- URLs für Sounddateien (DIESE SIND PLATZHALTER! BITTE ERSETZEN SIE DIESE!) ---
+# Sie müssen hier direkte Download-Links zu WAV-Dateien finden, z.B. von Freesound.org
+# Beispiel: SOUND_URLS = {"flap": "https://freesound.org/data/previews/274/274093_4981146-lq.wav", ...}
 SOUND_URLS = {
-    "flap": "https://freesound.org/data/previews/159/15940_180415-hq.wav", # "Bird Flap" by soundmary on Freesound
-    "hit": "https://freesound.org/data/previews/251/25130_28930-lq.wav",   # "Hit" by LittleRobotSoundFactory on Freesound
-    "point": "https://freesound.org/data/previews/369/369521_6410427-lq.wav", # "Coin Collect" by qubodup on Freesound
-    "music": "https://opengameart.org/sites/default/files/Game%20Loop%20%28WAV%29.wav" # "Game Loop (WAV)" by dklon on OpenGameArt
+    "flap": "https://www.101soundboards.com/sounds/13789-flap",
+    "hit": "https://www.101soundboards.com/sounds/13786-flappy-bird-hit-sound",
+    "point": "https://www.101soundboards.com/sounds/13787-point",
+    "music": "https://www.101soundboards.com/sounds/31661337-super-mario-bros-nes-music-overworld-theme"
 }
 
 # --- Funktion zum Herunterladen von Dateien ---
@@ -63,10 +63,10 @@ def download_file(url, filename):
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
         print(f"Download von '{filename}' abgeschlossen.")
+        return True
     except requests.exceptions.RequestException as e:
         print(f"Fehler beim Herunterladen von {url} zu {filename}: {e}")
         return False
-    return True
 
 # --- Soundeffekte laden (Versuche, sie herunterzuladen und dann zu laden) ---
 flap_sound = None
@@ -250,34 +250,17 @@ while True:
             high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
             restart_text = font.render("Press SPACE to restart", True, WHITE)
 
-            # Berechne die gesamte Höhe des Textblocks für die vertikale Zentrierung
-            # Eine zusätzliche Konstante für den Abstand zwischen den Zeilen
-            line_spacing = 20
-            total_text_height = game_over_text.get_height() + score_display_text.get_height() + \
-                                high_score_text.get_height() + restart_text.get_height() + \
-                                (3 * line_spacing) # 3 Abstände zwischen 4 Zeilen
-            
-            # Berechne die Start-Y-Position, um den gesamten Block zu zentrieren
-            start_y_game_over = (screen.get_height() - total_text_height) // 2
-            
-            screen.blit(game_over_text, (screen.get_width() // 2 - game_over_text.get_width() // 2, start_y_game_over))
-            screen.blit(score_display_text, (screen.get_width() // 2 - score_display_text.get_width() // 2, start_y_game_over + game_over_text.get_height() + line_spacing))
-            screen.blit(high_score_text, (screen.get_width() // 2 - high_score_text.get_width() // 2, start_y_game_over + game_over_text.get_height() + score_display_text.get_height() + (2 * line_spacing)))
-            screen.blit(restart_text, (screen.get_width() // 2 - restart_text.get_width() // 2, start_y_game_over + game_over_text.get_height() + score_display_text.get_height() + high_score_text.get_height() + (3 * line_spacing)))
+            screen.blit(game_over_text, (screen.get_width() // 2 - game_over_text.get_width() // 2, 150))
+            screen.blit(score_display_text, (screen.get_width() // 2 - score_display_text.get_width() // 2, 220))
+            screen.blit(high_score_text, (screen.get_width() // 2 - high_score_text.get_width() // 2, 280))
+            screen.blit(restart_text, (screen.get_width() // 2 - restart_text.get_width() // 2, 350))
         else: # Display "Press SPACE to start" at the very beginning
             start_text = font.render("Press SPACE to start", True, WHITE)
             high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
             
-            # Berechne die gesamte Höhe des Textblocks für die vertikale Zentrierung
-            line_spacing = 20
-            total_start_text_height = start_text.get_height() + high_score_text.get_height() + line_spacing # 1 Abstand zwischen 2 Zeilen
-            
-            # Berechne die Start-Y-Position, um den gesamten Block zu zentrieren
-            start_y_start_screen = (screen.get_height() - total_start_text_height) // 2
-            
-            screen.blit(start_text, (screen.get_width() // 2 - start_text.get_width() // 2, start_y_start_screen))
-            screen.blit(high_score_text, (screen.get_width() // 2 - high_score_text.get_width() // 2, start_y_start_screen + start_text.get_height() + line_spacing))
-            draw_bird(bird_x, bird_y) # Keep the bird for the start screen preview
+            screen.blit(start_text, (screen.get_width() // 2 - start_text.get_width() // 2, 280))
+            screen.blit(high_score_text, (screen.get_width() // 2 - high_score_text.get_width() // 2, 340))
+            draw_bird(bird_x, bird_y)
             
     pygame.display.update()
     clock.tick(60)
