@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# 🎵 FLAPPY BIRD - 100% OFFLINE MIT SYNTHETISCHEN SOUNDS
-# 🚀 Läuft sofort nach Start
+# 🚀 FLAPPY BIRD - PERFEKTE KOPIE
+# ✔ Unendlicher Zähler | ✔ Original-Geschwindigkeit
 
 import pygame
 import random
@@ -76,14 +76,16 @@ class SoundSystem:
 
 sound_system = SoundSystem()
 
-# Spielvariablen
+# Original Flappy Bird Parameter
 bird_rect = pygame.Rect(100, 300, 30, 30)
 bird_speed = 0
-gravity = 0.4
-pipes = []
+gravity = 0.4  # Original Schwerkraft
+jump_strength = -7  # Original Sprungkraft
 pipe_width = 70
-pipe_gap = 150
-pipe_frequency = 1500
+pipe_gap = 150  # Original Lücke zwischen Rohren
+pipe_speed = 3  # Original Rohr-Geschwindigkeit
+pipe_frequency = 1500  # Original Rohr-Erzeugungsrate
+ground_height = 580
 last_pipe = pygame.time.get_ticks()
 score = 0
 high_score = 0
@@ -111,12 +113,12 @@ def check_collision():
     for pipe in pipes:
         if bird_rect.colliderect(pipe):
             return True
-    return bird_rect.top <= 0 or bird_rect.bottom >= 580
+    return bird_rect.top <= 0 or bird_rect.bottom >= ground_height
 
 def update_score():
     global score, high_score
     for pipe in pipes:
-        if pipe.right < 100 and id(pipe) not in passed_pipes and pipe.y > 0:
+        if pipe.right < bird_rect.left and id(pipe) not in passed_pipes and pipe.y > 0:
             passed_pipes.add(id(pipe))
             score += 1
             high_score = max(score, high_score)
@@ -152,6 +154,7 @@ def show_game_over():
 
 # Hauptspiel-Loop
 running = True
+pipes = []
 while running:
     clock.tick(60)
     screen.fill(SKY_BLUE)
@@ -173,11 +176,11 @@ while running:
                     last_pipe = pygame.time.get_ticks()
                 else:
                     # Flügelschlag
-                    bird_speed = -7
+                    bird_speed = jump_strength
                     sound_system.play('wing')
 
     if game_active:
-        # Spiel-Logik
+        # Original Flappy Bird Physik
         bird_speed += gravity
         bird_rect.y += bird_speed
 
@@ -187,9 +190,9 @@ while running:
             pipes.extend(create_pipe())
             last_pipe = time_now
 
-        # Rohre bewegen
+        # Rohre bewegen mit Original-Geschwindigkeit
         for pipe in pipes[:]:
-            pipe.x -= 3
+            pipe.x -= pipe_speed
             if pipe.right < 0:
                 pipes.remove(pipe)
 
@@ -214,8 +217,8 @@ while running:
             show_menu()
 
     # Boden
-    pygame.draw.rect(screen, (200, 180, 50), (0, 580, 400, 20))
-    pygame.draw.rect(screen, (150, 130, 20), (0, 580, 400, 5))
+    pygame.draw.rect(screen, (200, 180, 50), (0, ground_height, 400, 600-ground_height))
+    pygame.draw.rect(screen, (150, 130, 20), (0, ground_height, 400, 5))
 
     pygame.display.update()
 
