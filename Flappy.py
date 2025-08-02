@@ -7,18 +7,16 @@ import pygame
 import random
 import sys
 import math
-import requests # Importiere das requests Modul
-import os       # Importiere das os Modul für Dateipfade
 
-# Initialisierung
+# Initialisierung von Pygame und dem Mixer
 pygame.init()
-pygame.mixer.init() # Initialisiere den Pygame Mixer
+pygame.mixer.init()
 
 screen = pygame.display.set_mode((400, 600))
 pygame.display.set_caption("Flappy Bird")
 clock = pygame.time.Clock()
 
-# Farben
+# Farben für das Spiel
 SKY_BLUE = (107, 187, 255)
 GREEN = (76, 187, 0)
 WHITE = (255, 255, 255)
@@ -37,90 +35,82 @@ PIPE_GAP = 120
 PIPE_SPEED = 2.5
 GROUND_HEIGHT = 500
 
-# --- URLs für Sounddateien (DIESE SIND PLATZHALTER! BITTE ERSETZEN SIE DIESE!) ---
-# Sie müssen hier direkte Download-Links zu WAV-Dateien finden, z.B. von Freesound.org
-# Beispiel: SOUND_URLS = {"flap": "https://freesound.org/data/previews/274/274093_4981146-lq.wav", ...}
-SOUND_URLS = {
-    "flap": "https://www.101soundboards.com/sounds/13789-flap",
-    "hit": "https://www.101soundboards.com/sounds/13786-flappy-bird-hit-sound",
-    "point": "https://www.101soundboards.com/sounds/13787-point",
-    "music": "https://www.101soundboards.com/sounds/31661337-super-mario-bros-nes-music-overworld-theme"
-}
+# --- Soundeffekte laden (Lokale Dateien) ---
+# Da die URLs für die Sounds nicht zuverlässig waren, wurde die Download-Funktion entfernt.
+# Um Sounds hinzuzufügen, laden Sie einfach Ihre eigenen .mp3- oder .wav-Dateien herunter
+# und legen Sie sie im selben Verzeichnis wie dieses Python-Skript ab.
+# Benennen Sie sie entsprechend und entfernen Sie die Kommentarzeichen (#).
+# Beispiel: flap_sound = pygame.mixer.Sound("wing.mp3")
 
-# --- Funktion zum Herunterladen von Dateien ---
-def download_file(url, filename):
-    if not url or url.startswith("https://www.example.com/"): # Überspringe Platzhalter-URLs
-        print(f"Skipping download for placeholder URL: {url}")
-        return False
-    if os.path.exists(filename):
-        print(f"Datei '{filename}' existiert bereits. Überspringe Download.")
-        return True
-    try:
-        print(f"Lade '{filename}' von {url} herunter...")
-        response = requests.get(url, stream=True, timeout=10) # Timeout hinzugefügt
-        response.raise_for_status() # Löst einen HTTPError für schlechte Antworten (4xx oder 5xx) aus
-        with open(filename, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        print(f"Download von '{filename}' abgeschlossen.")
-        return True
-    except requests.exceptions.RequestException as e:
-        print(f"Fehler beim Herunterladen von {url} zu {filename}: {e}")
-        return False
-
-# --- Soundeffekte laden (Versuche, sie herunterzuladen und dann zu laden) ---
 flap_sound = None
 hit_sound = None
 point_sound = None
-background_music_file_path = None # Variable für den Pfad der Musikdatei
-
-# Versuche, die Sounds herunterzuladen und zu laden
-if download_file(SOUND_URLS["flap"], "wing.wav"):
-    try:
-        flap_sound = pygame.mixer.Sound("wing.wav")
-    except pygame.error as e:
-        print(f"Fehler beim Laden von wing.wav: {e}")
-
-if download_file(SOUND_URLS["hit"], "hit.wav"):
-    try:
-        hit_sound = pygame.mixer.Sound("hit.wav")
-    except pygame.error as e:
-        print(f"Fehler beim Laden von hit.wav: {e}")
-
-if download_file(SOUND_URLS["point"], "point.wav"):
-    try:
-        point_sound = pygame.mixer.Sound("point.wav")
-    except pygame.error as e:
-        print(f"Fehler beim Laden von point.wav: {e}")
-
-if download_file(SOUND_URLS["music"], "background_music.wav"):
-    background_music_file_path = "background_music.wav"
-    try:
-        pygame.mixer.music.load(background_music_file_path)
-        pygame.mixer.music.set_volume(0.5)
-    except pygame.error as e:
-        print(f"Fehler beim Laden der Hintergrundmusik: {e}")
-        background_music_file_path = None
+background_music_file_path = None # Steuert die Anzeige einer Fehlermeldung, wenn keine Musik geladen ist.
 
 
-# Vogel-Design (Pixelgenau)
-def draw_bird(x, y):
+# Hilfsfunktion zum Zeichnen von zentriertem Text
+def draw_centered_text(surface, text, font, color, y):
+    text_surface = font.render(text, True, color)
+    text_rect = text_surface.get_rect(center=(surface.get_width() // 2, y))
+    surface.blit(text_surface, text_rect)
+
+
+# Vogel-Design (Pixelgenau) mit Rotation
+def draw_bird(x, y, bird_speed):
+    # Berechnung des Rotationswinkels basierend auf der Geschwindigkeit
+    rotation = -bird_speed * 3.5  # Ändere den Wert, um die Rotation anzupassen
+    if bird_speed < -5: # Begrenzung des maximalen Aufwärtswinkels
+        rotation = 20
+    elif bird_speed > 10: # Begrenzung des maximalen Abwärtswinkels
+        rotation = -90
+
+    # Oberfläche für den Vogel erstellen und darauf zeichnen
+    bird_surface = pygame.Surface((BIRD_WIDTH + 15, BIRD_HEIGHT + 15), pygame.SRCALPHA)
+    
     # Körper
-    pygame.draw.ellipse(screen, BIRD_YELLOW, (x, y, BIRD_WIDTH, BIRD_HEIGHT))
+    pygame.draw.ellipse(bird_surface, BIRD_YELLOW, (0, 0, BIRD_WIDTH, BIRD_HEIGHT))
     # Kopf
-    pygame.draw.circle(screen, BIRD_YELLOW, (x + 25, y + 10), 12)
+    pygame.draw.circle(bird_surface, BIRD_YELLOW, (25, 10), 12)
     # Auge
-    pygame.draw.circle(screen, WHITE, (x + 30, y + 6), 5)
-    pygame.draw.circle(screen, BLACK, (x + 30, y + 6), 2)
+    pygame.draw.circle(bird_surface, WHITE, (30, 6), 5)
+    pygame.draw.circle(bird_surface, BLACK, (30, 6), 2)
     # Schnabel
-    pygame.draw.polygon(screen, BIRD_RED, [
-        (x + 34, y + 10),
-        (x + 44, y + 6),
-        (x + 44, y + 14)
+    pygame.draw.polygon(bird_surface, BIRD_RED, [
+        (34, 10),
+        (44, 6),
+        (44, 14)
     ])
     # Flügel (animiert)
-    wing_y = y + 12 + 3 * math.sin(pygame.time.get_ticks() / 150)
-    pygame.draw.ellipse(screen, BIRD_YELLOW, (x - 5, wing_y, 20, 10))
+    wing_y = 12 + 3 * math.sin(pygame.time.get_ticks() / 150)
+    pygame.draw.ellipse(bird_surface, BIRD_YELLOW, (-5, wing_y, 20, 10))
+
+    # Vogel-Oberfläche drehen
+    rotated_bird = pygame.transform.rotate(bird_surface, rotation)
+    rotated_bird_rect = rotated_bird.get_rect(center=(x + BIRD_WIDTH / 2, y + BIRD_HEIGHT / 2))
+    screen.blit(rotated_bird, rotated_bird_rect)
+
+# Start/Game Over Menü
+def draw_menu(score, high_score, game_active):
+    if not game_active:
+        # Verwende eine zentrierte Schriftart, um dem Original zu entsprechen
+        font_large = pygame.font.Font(None, 60)
+        font_medium = pygame.font.Font(None, 36)
+        screen_center_y = screen.get_height() // 2
+
+        if score > 0: # Game Over Bildschirm
+            draw_centered_text(screen, "Game Over", font_large, RED, screen_center_y - 100)
+            draw_centered_text(screen, f"Score: {score}", font_medium, WHITE, screen_center_y - 40)
+            draw_centered_text(screen, f"High Score: {high_score}", font_medium, WHITE, screen_center_y + 10)
+            draw_centered_text(screen, "Drücke LEERTASTE zum Neustart", font_medium, WHITE, screen_center_y + 70)
+        else: # Startbildschirm
+            draw_centered_text(screen, "Drücke LEERTASTE zum Starten", font_medium, WHITE, screen_center_y)
+            draw_centered_text(screen, f"High Score: {high_score}", font_medium, WHITE, screen_center_y + 60)
+            draw_bird(bird_x, bird_y, 0)
+        
+        # Visueller Hinweis, wenn Musik nicht geladen wurde
+        if not background_music_file_path:
+            error_font = pygame.font.Font(None, 24)
+            draw_centered_text(screen, "Hintergrundmusik konnte nicht geladen werden.", error_font, RED, screen_center_y + 150)
 
 # Spielvariablen
 bird_x = 100
@@ -130,9 +120,9 @@ pipes = []
 score = 0
 high_score = 0
 game_active = False
-font = pygame.font.SysFont('Arial', 50, bold=True)
+font = pygame.font.Font(None, 40)
 passed_pipes = set()
-background_music_playing = False # Flag, um den Zustand der Musik zu verfolgen
+background_music_playing = False
 
 def create_pipe():
     gap_y = random.randint(200, 400)
@@ -157,22 +147,19 @@ while True:
                 pipes = []
                 score = 0
                 passed_pipes = set()
-                if pygame.mixer.music.get_busy():
-                    pygame.mixer.music.stop()
-                background_music_playing = False # Reset the flag
-                
+                if not background_music_playing and background_music_file_path:
+                    pygame.mixer.music.play(-1)
+                    background_music_playing = True
             else:
                 # Sprung
                 bird_speed = FLAP_STRENGTH
                 if flap_sound:
                     flap_sound.play()
 
-    # Spiele Hintergrundmusik, wenn das Spiel aktiv ist und die Musik noch nicht läuft
-    if game_active and not background_music_playing and background_music_file_path:
-        pygame.mixer.music.play(-1) # -1 bedeutet, dass die Musik in einer Schleife gespielt wird
-        background_music_playing = True
-    elif not game_active and background_music_playing: # Stoppe die Musik, wenn das Spiel nicht aktiv ist
-        pygame.mixer.music.stop()
+    # Logik, um die Musik bei Game Over zu stoppen
+    if not game_active and background_music_playing:
+        if background_music_file_path:
+            pygame.mixer.music.stop()
         background_music_playing = False
 
     # Spiel-Logik
@@ -233,34 +220,18 @@ while True:
     
     # Vogel
     if game_active:
-        draw_bird(bird_x, bird_y)
+        draw_bird(bird_x, bird_y, bird_speed)
     
     # Punktestand
     score_text = font.render(str(score), True, WHITE)
-    screen.blit(score_text, (screen.get_width() // 2 - score_text.get_width() // 2, 100))
+    score_rect = score_text.get_rect(center=(screen.get_width() // 2, 100))
+    screen.blit(score_text, score_rect)
     
     # Start/Game Over Menü
     if not game_active:
         if score > high_score:
             high_score = score
-
-        if score > 0: # Display "Game Over" and restart if a game was played
-            game_over_text = font.render("Game Over", True, RED)
-            score_display_text = font.render(f"Score: {score}", True, WHITE)
-            high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
-            restart_text = font.render("Press SPACE to restart", True, WHITE)
-
-            screen.blit(game_over_text, (screen.get_width() // 2 - game_over_text.get_width() // 2, 150))
-            screen.blit(score_display_text, (screen.get_width() // 2 - score_display_text.get_width() // 2, 220))
-            screen.blit(high_score_text, (screen.get_width() // 2 - high_score_text.get_width() // 2, 280))
-            screen.blit(restart_text, (screen.get_width() // 2 - restart_text.get_width() // 2, 350))
-        else: # Display "Press SPACE to start" at the very beginning
-            start_text = font.render("Press SPACE to start", True, WHITE)
-            high_score_text = font.render(f"High Score: {high_score}", True, WHITE)
-            
-            screen.blit(start_text, (screen.get_width() // 2 - start_text.get_width() // 2, 280))
-            screen.blit(high_score_text, (screen.get_width() // 2 - high_score_text.get_width() // 2, 340))
-            draw_bird(bird_x, bird_y)
+        draw_menu(score, high_score, game_active)
             
     pygame.display.update()
     clock.tick(60)
