@@ -19,7 +19,7 @@ pip install pygame
 
 Speichern Sie den bereitgestellten Code als flappy_bird.py und führen Sie ihn aus:
 
-python flappy.py
+python Flappy.py
 
 Spielanleitung
 Steuerung: Drücken Sie die Leertaste, um den Vogel flattern zu lassen und ihn oben zu halten.
